@@ -1,6 +1,6 @@
+#include <curl/curl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <curl/curl.h>
 
 #include "http.h"
 #include "panic.h"
@@ -27,9 +27,12 @@ void httpResponseRelease(httpResponse *response) {
 }
 
 static int _httpGetContentType(char *type) {
-    if (strncmp(type, "application/json", 16) == 0) return RES_TYPE_JSON;
-    if (strncmp(type, "text/html", 9) == 0) return RES_TYPE_HTML;
-    if (strncmp(type, "text", 4) == 0) return RES_TYPE_TEXT;
+    if (strncmp(type, "application/json", 16) == 0)
+        return RES_TYPE_JSON;
+    if (strncmp(type, "text/html", 9) == 0)
+        return RES_TYPE_HTML;
+    if (strncmp(type, "text", 4) == 0)
+        return RES_TYPE_TEXT;
 
     return RES_TYPE_INVALID;
 }
@@ -43,18 +46,18 @@ void httpPrintResponse(httpResponse *response) {
     content_type = "text";
 
     switch (response->content_type) {
-        case RES_TYPE_HTML:
-            content_type = "html";
-            break;
-        case RES_TYPE_INVALID:
-            content_type = "invalid";
-            break;
-        case RES_TYPE_JSON:
-            content_type = "json";
-            break;
-        case RES_TYPE_TEXT:
-            content_type = "text";
-            break;
+    case RES_TYPE_HTML:
+        content_type = "html";
+        break;
+    case RES_TYPE_INVALID:
+        content_type = "invalid";
+        break;
+    case RES_TYPE_JSON:
+        content_type = "json";
+        break;
+    case RES_TYPE_TEXT:
+        content_type = "text";
+        break;
     }
 
     printf("status code: %d\n"
@@ -65,21 +68,21 @@ void httpPrintResponse(httpResponse *response) {
 }
 
 static size_t curlRead(void *contents, size_t size, size_t nmemb, void *userp) {
-  size_t realsize = size * nmemb;
-  httpResponse *resp = (httpResponse *)userp;
+    size_t realsize = size * nmemb;
+    httpResponse *resp = (httpResponse *)userp;
 
-  char *ptr = realloc(resp->body, resp->bodylen + realsize + 1);
-  if (ptr == NULL) {
-    warning("CURL error: not enough memory\n");
-    return 0;
-  }
+    char *ptr = realloc(resp->body, resp->bodylen + realsize + 1);
+    if (ptr == NULL) {
+        warning("CURL error: not enough memory\n");
+        return 0;
+    }
 
-  resp->body = ptr;
-  memcpy(&(resp->body[resp->bodylen]), contents, realsize);
-  resp->bodylen += realsize;
-  resp->body[resp->bodylen] = 0;
+    resp->body = ptr;
+    memcpy(&(resp->body[resp->bodylen]), contents, realsize);
+    resp->bodylen += realsize;
+    resp->body[resp->bodylen] = 0;
 
-  return realsize;
+    return realsize;
 }
 
 httpResponse *curlHttpGet(char *url) {

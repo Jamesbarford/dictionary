@@ -7,7 +7,7 @@
 #define RES_TYPE_JSON (3 << 1)
 
 #define HTTP_ERR 0
-#define HTTP_OK  1
+#define HTTP_OK 1
 
 typedef struct httpResponse {
     char *body;
