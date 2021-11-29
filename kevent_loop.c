@@ -88,20 +88,18 @@ static void eloopStateDelete(eloop *el, int fd, int mask) {
 
 static int eloopPoll(eloop *el) {
     evtState *es = eloopGetState(el);
-    int fdcount = 0;
+    int fdcount;
 
     fdcount = kevent(es->kfd, NULL, 0, es->events, el->count, NULL);
 
     if (fdcount > 0) {
         for (int i = 0; i < fdcount; ++i) {
-            int newmask;
+            int newmask = 0;
             struct kevent *event = es->events + i;
             short filter = event->filter;
 
-            if (filter & EVFILT_READ)
-                newmask |= EVT_READ;
-            if (filter & EVFILT_WRITE)
-                newmask |= EVT_WRITE;
+            if (filter == EVFILT_READ)  newmask |= EVT_READ;
+            if (filter == EVFILT_WRITE) newmask |= EVT_WRITE;
             el->active[i].fd = event->ident;
             el->active[i].mask = newmask;
         }

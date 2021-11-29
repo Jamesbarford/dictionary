@@ -22,6 +22,15 @@ static inline void _eloopSetEvtAdd(evt *evs, int eventcount) {
         evs[i].mask = EVT_ADD;
 }
 
+void eloopRelease(eloop *el) {
+	if (el) {
+		free(el->idle);
+		free(el->active);
+		eloopStateRelease(el);
+		free(el);
+	}
+}
+
 eloop *eloopCreate(int eventcount) {
     int eventssize;
     eloop *el;

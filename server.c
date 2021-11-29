@@ -287,8 +287,10 @@ void serverSetFileDescriptorLimit() {
     }
 
     server.maxclients = targetlimit;
-    printf("[%d]: server file descriptors increased from %lu to %lu\n",
-            server.pid, fdlim.rlim_cur, targetlimit);
+    printf("[%d]: server file descriptors increased from %llu to %llu\n",
+            server.pid,
+			(unsigned long long)fdlim.rlim_cur,
+			(unsigned long long)targetlimit);
 }
 
 void serverInit() {

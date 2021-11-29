@@ -3,15 +3,9 @@ CLIENT := define
 CC     := cc
 CFLAGS := -Wall -Werror -Wextra -Wpedantic -O2
 OUT    := build
-LIBS   := -lssl -lcrypto -lcurl -lsqlite3
+LIBS   := -lcurl -lsqlite3
 
 PREFIX?=/usr/local
-
-# Mac os openssl
-ifeq ($(uname), Darwin)
-	OPEN_SSL_DIR=/usr/local/opt/openssl
-	LINK_FLAGS+=-I$(OPEN_SSL_DIR)/include -L$(OPEN_SSL_DIR)/lib
-endif
 
 $(OUT)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -29,14 +23,14 @@ SERVER_OBJS = $(OUT)/server.o \
 			  $(OUT)/cstr.o
 
 $(SERVER): $(SERVER_OBJS)
-	$(CC) -o $(SERVER) $(SERVER_OBJS) $(LINK_FLAGS) $(LIBS)
+	$(CC) -o $(SERVER) $(SERVER_OBJS) $(LIBS)
 
 CLIENT_OBJS = $(OUT)/client.o \
               $(OUT)/inet.o \
               $(OUT)/panic.o
 
 $(CLIENT): $(CLIENT_OBJS)
-	$(CC) -o $(CLIENT) $(CLIENT_OBJS) $(LINK_FLAGS) $(LIBS)
+	$(CC) -o $(CLIENT) $(CLIENT_OBJS)
 
 install:
 	mkdir -p $(PREFIX)/bin $(PREFIX)/share/man/main1

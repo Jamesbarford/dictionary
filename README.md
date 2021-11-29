@@ -37,17 +37,17 @@ define <string>
 
 ### Mac
 ```sh
-brew install libcurl openssl sqlite
+brew install libcurl sqlite
 ```
 
 ### Fedora
 ```sh
-sudo dnf install openssl openssl-devel libcurl sqlite-devel
+sudo dnf install libcurl sqlite-devel
 ```
 
 ### Ubuntu
 ```sh
-sudo apt-get install openssl openssl-dev libcurl-dev libsqlite3-dev
+sudo apt-get install libcurl-dev libsqlite3-dev
 ```
 
 ## Install
