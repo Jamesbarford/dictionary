@@ -47,7 +47,7 @@ sudo dnf install libcurl sqlite-devel
 
 ### Ubuntu
 ```sh
-sudo apt-get install libcurl-dev libsqlite3-dev
+sudo apt-get install libcurl4-openssl-dev libsqlite3-dev
 ```
 
 ## Install

@@ -20,7 +20,7 @@ static void clientUsage() {
 static int clientFindDefinition(char *word) {
     int sockfd;
     char buf[BUFSIZ], msg[BUFSIZ];
-    int len;
+    int len, rbytes;
 
     len = strlen(word);
     len = snprintf(msg, MAX_MSG, "%s:%d", word, len);
@@ -34,7 +34,11 @@ static int clientFindDefinition(char *word) {
         panic("Failed to write to server %s\n", strerror(errno)); 
     }
 
-    read(sockfd, buf, BUFSIZ);
+    if ((rbytes = read(sockfd, buf, BUFSIZ)) < 0) {
+        warning("CLIENT ERROR: Failed to read reply %s\n",
+            strerror(errno));
+    }
+    buf[rbytes] = '\0';
     printf("%s\n", buf);
 
     return 1;

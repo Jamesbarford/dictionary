@@ -46,7 +46,7 @@ int serverDaemonise(char *dir) {
 
     if ((proccessId = fork()) < 0) {
         warning("Error Daemon: Failed to fork() 1 %s\n", strerror(errno));
-        return -1;
+        return SERVER_ERR;
     }
 
     if (proccessId > 0)
@@ -57,20 +57,21 @@ int serverDaemonise(char *dir) {
 
     if ((proccessId = fork()) < 0) {
         warning("Error Daemon: Failed to fork() 2 %s\n", strerror(errno));
-        return -1;
+        return SERVER_ERR;
     }
 
     if (proccessId > 0)
         exit(EXIT_SUCCESS);
 
     (void)umask(0);
-    chdir(dir);
+    if (chdir(dir) < 0)
+        return SERVER_ERR;
 
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
 
-    return 0;
+    return SERVER_OK;
 }
 
 cstr *sanitizeText(char *buf) {
@@ -184,7 +185,7 @@ void serverSendClientReply(eloop *el, int fd, void *data, int mask) {
     (void)data;
     cstr *response;
     char msg[MAX_MSG] = {'\0'}, word[MAX_MSG - 100] = {'\0'};
-    int rbytes, wordlen, definitionlen;
+    int rbytes, wordlen, definitionlen, sbytes;
 
     response = NULL;
     definitionlen = 0;
@@ -196,14 +197,23 @@ void serverSendClientReply(eloop *el, int fd, void *data, int mask) {
         goto error;
 
     if ((response = serverLookupClientRequest(word, wordlen)) == NULL) {
-        write(fd, "Failed to find word", 19);
-        goto error;
+        if (write(fd, "Failed to find word", 19) != 19) {
+		  	warning("SERVER ERROR: Failed to write error reply\n",
+				strerror(errno));
+        	goto error;
+		}
+		goto error;
     }
 
     definitionlen = cstrlen(response);
 
-    if (definitionlen != 0)
-        write(fd, response, definitionlen);
+    if (definitionlen != 0) {
+        if ((sbytes = write(fd, response, definitionlen)) != definitionlen) {
+			warning("SERVER ERROR: Failed to write complete message"
+				" of %d bytes in length, sent: %d, %s\n",
+				definitionlen, sbytes, strerror(errno));
+		}
+	}
     
     // We're done with this
 error:

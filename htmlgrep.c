@@ -186,7 +186,7 @@ void htmlExtractText(char *buf, char *outbuf, size_t size) {
     
     ptr = buf;
     outptr = out;
-
+    state = WALK;
 
     while (*ptr != '\0') {
         if (state == COLLECT) htmlwalkCollect(&ptr, &outptr);
