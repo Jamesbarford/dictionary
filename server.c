@@ -1,14 +1,15 @@
-#include <ctype.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
-#include <sys/resource.h>
+
+#include <ctype.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "cstr.h"
 #include "dbclient.h"
@@ -19,14 +20,14 @@
 #include "inet.h"
 #include "panic.h"
 
-#define SERVER_NAME  "dictionary_daemon"
+#define SERVER_NAME "dictionary_daemon"
 #define SERVER_ERR 0
-#define SERVER_OK  1
+#define SERVER_OK 1
 #define DB_NAME "dict.db"
 #define DB_TABLE "dict"
 #define MAX_MSG 1024
 #define BACKLOG 500
-#define PORT 5000
+#define PORT 5050
 #define MERRIAM_WEBSTER "https://www.merriam-webster.com/dictionary"
 
 typedef struct dictionaryServer {
@@ -41,7 +42,9 @@ typedef struct dictionaryServer {
 
 dictionaryServer server;
 
-int serverDaemonise(char *dir) {
+int
+serverDaemonise(char *dir)
+{
     pid_t proccessId;
 
     if ((proccessId = fork()) < 0) {
@@ -74,9 +77,12 @@ int serverDaemonise(char *dir) {
     return SERVER_OK;
 }
 
-cstr *sanitizeText(char *buf) {
+cstr *
+sanitizeText(char *buf)
+{
     char *ptr, *outptr, tmp[65535];
     int linecount, collect, len;
+    cstr *out = NULL;
 
     collect = 0;
     linecount = 0;
@@ -84,7 +90,8 @@ cstr *sanitizeText(char *buf) {
     ptr = buf;
 
     while (*ptr != '\0') {
-        if (collect == 1) *outptr++ = *ptr;
+        if (collect == 1)
+            *outptr++ = *ptr;
         if (*ptr == '\n' && collect == 1) {
             linecount++;
             collect = 0;
@@ -99,24 +106,30 @@ cstr *sanitizeText(char *buf) {
     }
     *outptr = '\0';
     len = strlen(tmp);
-    return cstrCreate(tmp, len);
+    out = cstrAlloc(len);
+    out = cstrCatLen(out, tmp, len);
+
+    return out;
 }
 
-int serverPesistToDb(char *word, char *definition) {
+int
+serverPesistToDb(char *word, cstr *definition)
+{
     char sqlstmt[65535];
     int len;
 
-    len = snprintf(sqlstmt,
-            65535,
-            "INSERT INTO %s (word, definitions) VALUES ('%s', '%s');",
-            DB_TABLE, word, definition);
+    len = snprintf(sqlstmt, 65535,
+            "INSERT INTO %s (word, definitions) VALUES ('%s', '%s');", DB_TABLE,
+            word, definition);
     sqlstmt[len] = '\0';
 
     return dbExec(server.db, sqlstmt);
 }
 
-httpResponse *serverConsultMerriam(char *word) {
-    char url[500] = {'\0'};
+httpResponse *
+serverConsultMerriam(char *word)
+{
+    char url[500] = { '\0' };
     int len;
 
     len = snprintf(url, 500, "%s/%s", MERRIAM_WEBSTER, word);
@@ -125,8 +138,10 @@ httpResponse *serverConsultMerriam(char *word) {
     return curlHttpGet(url);
 }
 
-int serverReadClientMessage(char *msg, char *word, int *len) {
-    char *ptr, strnum[200] = {'\0'}, tmpword[200] = {'\0'};
+int
+serverReadClientMessage(char *msg, char *word, int *len)
+{
+    char *ptr, strnum[200] = { '\0' }, tmpword[200] = { '\0' };
     ptr = msg;
 
     for (unsigned long i = 0;
@@ -134,12 +149,14 @@ int serverReadClientMessage(char *msg, char *word, int *len) {
         tmpword[i] = *ptr++;
     }
 
-    if (*ptr == '\0') return SERVER_ERR;
+    if (*ptr == '\0')
+        return SERVER_ERR;
 
     ptr++;
 
     for (unsigned long i = 0; i < sizeof(strnum) && *ptr != '\0'; ++i) {
-        if (!isdigit(*ptr)) return SERVER_ERR;
+        if (!isdigit(*ptr))
+            return SERVER_ERR;
         strnum[i] = *ptr++;
     }
 
@@ -151,40 +168,43 @@ int serverReadClientMessage(char *msg, char *word, int *len) {
     return SERVER_OK;
 }
 
-cstr *serverLookupClientRequest(char *reqword, int reqwordlen) {
-    char *definition;
+cstr *
+serverLookupClientRequest(char *reqword, int reqwordlen)
+{
+    cstr *definition;
     httpResponse *resp;
 
     if ((definition = hmapGet(server.cache, reqword)) != NULL) {
         return definition;
     } else {
-        cstr *sanitised;
-        sanitised = NULL;
         // go to the internet and find a definition
         if ((resp = serverConsultMerriam(reqword)) == NULL)
             return SERVER_ERR;
-       
-        if (resp->status_code == 200) {
-            char outbuf[65355] = {'\0'};
-            htmlGrepFromUntil(resp->body, "<span class=\"dtText\">", 21,
-                    "</span>", 7, outbuf);
 
-            sanitised = sanitizeText(outbuf);
-            hmapAdd(server.cache, cstrCreate(reqword, reqwordlen), sanitised);
-            serverPesistToDb(reqword, sanitised);
+        if (resp->status_code == 200) {
+            list *l = htmlGetMatches(resp->body, "dtText");
+            cstr *all_matches = htmlConcatList(l);
+
+            hmapAdd(server.cache,
+                    cstrDupRaw(reqword, reqwordlen, reqwordlen + 10),
+                    all_matches);
+            serverPesistToDb(reqword, all_matches);
+            return all_matches;
         }
         httpResponseRelease(resp);
-        return sanitised;
+        return NULL;
     }
 
     return NULL;
 }
 
-void serverSendClientReply(eloop *el, int fd, void *data, int mask) {
+void
+serverSendClientReply(eloop *el, int fd, void *data, int mask)
+{
     (void)el;
     (void)data;
     cstr *response;
-    char msg[MAX_MSG] = {'\0'}, word[MAX_MSG - 100] = {'\0'};
+    char msg[MAX_MSG] = { '\0' }, word[MAX_MSG - 100] = { '\0' };
     int rbytes, wordlen, definitionlen, sbytes;
 
     response = NULL;
@@ -198,23 +218,25 @@ void serverSendClientReply(eloop *el, int fd, void *data, int mask) {
 
     if ((response = serverLookupClientRequest(word, wordlen)) == NULL) {
         if (write(fd, "Failed to find word", 19) != 19) {
-		  	warning("SERVER ERROR: Failed to write error reply\n",
-				strerror(errno));
-        	goto error;
-		}
-		goto error;
+            warning("SERVER ERROR: Failed to write error reply\n",
+                    strerror(errno));
+            goto error;
+        }
+        goto error;
     }
 
     definitionlen = cstrlen(response);
 
     if (definitionlen != 0) {
         if ((sbytes = write(fd, response, definitionlen)) != definitionlen) {
-			warning("SERVER ERROR: Failed to write complete message"
-				" of %d bytes in length, sent: %d, %s\n",
-				definitionlen, sbytes, strerror(errno));
-		}
-	}
-    
+            warning("[%d] SERVER ERROR: Failed to write complete message"
+                    " of %d bytes in length, sent: %d, %s\n",
+                    definitionlen, sbytes, strerror(errno), server.pid);
+        } else {
+            printf("[%d]: server responded to '%s' OK\n", server.pid, word);
+        }
+    }
+
     // We're done with this
 error:
     server.clientcount--;
@@ -222,32 +244,44 @@ error:
     close(fd);
 }
 
-void serverAccept(eloop *el, int fd, void *data, int mask) {
-    (void)el; (void)fd; (void)data;
+void
+serverAccept(eloop *el, int fd, void *data, int mask)
+{
+    (void)el;
+    (void)fd;
+    (void)data;
     int sockfd;
-    
+
     if ((sockfd = inetAcceptNonBlocking(fd)) == INET_ERR)
         return;
 
-    if (eloopAddEvent(el, sockfd, mask,
-                serverSendClientReply, NULL) == EVT_ERR)
+    if (eloopAddEvent(el, sockfd, mask, serverSendClientReply, NULL) == EVT_ERR)
         return;
 
     server.clientcount++;
 }
 
-void serverTransferToCache(void *_cache, int columncount, char **row) {
+void
+serverTransferToCache(void *_cache, int columncount, char **row)
+{
     hmap *cache = _cache;
     cstr *key, *value;
+    unsigned int keylen, valuelen;
+
     if (columncount != 2)
         panic("SERVER ERROR: expected 2 columns got %d\n", columncount);
 
-    key = cstrCreate(row[0], strlen(row[0]));
-    value = cstrCreate(row[1], strlen(row[1]));
+    keylen = strlen(row[0]);
+    valuelen = strlen(row[1]);
+
+    key = cstrDupRaw(row[0], keylen, keylen + 10);
+    value = cstrDupRaw(row[1], valuelen, valuelen + 10);
     hmapAdd(cache, key, value);
 }
 
-void serverInitDictionary() {
+void
+serverInitDictionary()
+{
     char sqltablestmt[2000], sqlcountstmt[200], sqlselectstmt[200];
     int len;
     long long rowcount;
@@ -276,7 +310,9 @@ void serverInitDictionary() {
     }
 }
 
-void serverSetFileDescriptorLimit() {
+void
+serverSetFileDescriptorLimit()
+{
     struct rlimit fdlim, newfdlim;
     rlim_t currentlimit, targetlimit, decrement;
 
@@ -292,18 +328,20 @@ void serverSetFileDescriptorLimit() {
         newfdlim.rlim_cur = targetlimit;
         newfdlim.rlim_max = targetlimit;
 
-        if (setrlimit(RLIMIT_NOFILE, &newfdlim) != -1) break;
+        if (setrlimit(RLIMIT_NOFILE, &newfdlim) != -1)
+            break;
         targetlimit -= decrement;
     }
 
     server.maxclients = targetlimit;
     printf("[%d]: server file descriptors increased from %llu to %llu\n",
-            server.pid,
-			(unsigned long long)fdlim.rlim_cur,
-			(unsigned long long)targetlimit);
+            server.pid, (unsigned long long)fdlim.rlim_cur,
+            (unsigned long long)targetlimit);
 }
 
-void serverInit() {
+void
+serverInit()
+{
     server.pid = getpid();
 
     serverSetFileDescriptorLimit();
@@ -316,10 +354,9 @@ void serverInit() {
 
     if ((server.sfd = inetCreateServerNonBlocking(PORT, NULL, BACKLOG)) <= 0)
         panic("SERVER ERROR: Failed to create socket %s\n", strerror(errno));
-    
+
     if ((server.evtloop = eloopCreate(server.maxclients)) == NULL)
-        panic("SERVER ERROR: Failed to create eventloop\n",
-                strerror(errno));
+        panic("SERVER ERROR: Failed to create eventloop\n", strerror(errno));
 
     eloopAddEvent(server.evtloop, server.sfd, EVT_READ, serverAccept, NULL);
 
@@ -327,7 +364,9 @@ void serverInit() {
     printf("[%d]: server cache initalized\n", server.pid);
 }
 
-int main(void) {
+int
+main(void)
+{
     serverInit();
 
     printf("[%d]: server started on port :: %d\n", server.pid, PORT);

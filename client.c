@@ -7,7 +7,7 @@
 #include "panic.h"
 
 #define MAX_MSG 1024
-#define PORT 5000
+#define PORT 5050
 #define SERVER_NAME  "dictionary_daemon"
 
 static char *progname;

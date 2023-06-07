@@ -1,211 +1,116 @@
-#include <stddef.h>
-#include <string.h>
-#include <stdio.h>
+#include <sys/stat.h>
+
 #include <ctype.h>
+#include <libxml/HTMLparser.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
+#include <libxml/xmlstring.h>
+#include <libxml/xpath.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
+#include "cstr.h"
 #include "htmlgrep.h"
+#include "list.h"
 
-enum htmlstate {
-    COLLECT,
-    WALK,
-    IN_TAG
-};
-
-struct map {
-    int idx;
-    char *name;
-} state_map[] = {
-    { COLLECT, "collect" },
-    { WALK, "walk" },
-    { IN_TAG, "in_tag" },
-};
-
-/* Anything that starts with whitespace is not something we are interested in
- *
- * AND '
- * as ' will kill the SQL insert statement
- */
-#define iscollectable(c) ((c) >= 33 && (c) <= 126 && (c) != 39)
-
-typedef struct grepClosure {
-    char *until;
-    char **out;
-    int len;
-} grepClosure;
-
-static inline enum htmlstate htmlwalk(char *buf, enum htmlstate state) {
-    switch (state) {
-        case WALK: {
-            if (*buf == '<' && *(buf + 1) == '/') return WALK;
-            if (*buf == '<' && *(buf + 1) != '/') return IN_TAG;
-            if (*buf == '>' && state == WALK) return COLLECT;
-
-            return WALK;
-        }
-
-        case IN_TAG: {
-            if (*buf == '>' && state == WALK) return COLLECT;
-            return WALK;
-        }
-
-        case COLLECT: {
-            if (*buf == '<') return WALK;
-            return COLLECT;
-        }
-
-        default:
-            return WALK;
-    }
-}
-
-static void htmlGrepUntil(char **buf, void *closure) {
-    grepClosure *gc = closure;
-    enum htmlstate state;
-    char tmp[65355] = {'\0'};
-    char **ptr, *tmpptr;
-    int i;
-    
-    ptr = buf;
-    tmpptr = tmp;
-    state = WALK;
-    (*ptr)--;
-
-    while (**ptr != '\0') {
-        if (**ptr == gc->until[0] && state != COLLECT) {
-            for (i = 0; i < gc->len; ++i) {
-                if (**ptr == gc->until[i]) {
-                    (*ptr)++;
-                    continue;
-                }
-                break;
-            }
-            if (i == gc->len) {
-                *tmpptr = '\n';
-                *(tmpptr + 1) = '\0';
-                strcat(*gc->out, tmp);
-                (*ptr)++;
-                return;
-            }
-        }
-        if (state == COLLECT) {
-            while (**ptr != '<' && **ptr != '\0') {
-                if (iscollectable(**ptr) || **ptr == ' ')
-                    *tmpptr++ = **ptr;
-                (*ptr)++;
-            }
-            state = WALK;
-            continue;
-        }
-        state = htmlwalk(*ptr, state);
-        (*ptr)++;
-    }
-}
-
-void htmlGrepAndExec(char *buf, char *word, int len, void *data,
-        void (*process)(char **, void *))
+list *
+parse_html(cstr *html, char *classname)
 {
-    char *ptr;
-    int i;
+    list *l = NULL;
 
-    ptr = buf;
-
-    while (*ptr != 0) {
-        if (*ptr == word[0]) {
-            for (i = 0; i < len; ++i) {
-                if (word[i] == *ptr) {
-                    ptr++;
-                    continue;
-                }
-                break;
-            }
-            if (i == len) {
-                ptr--;
-                if (process != NULL) process(&ptr, data);
-            }
-        }
-        ptr++;
+    htmlDocPtr doc = htmlReadMemory((char *)html, cstrlen(html), "noname", NULL,
+            HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
+    if (!doc) {
+        fprintf(stderr, "Failed to parse HTML.\n");
+        return NULL;
     }
+
+    xmlXPathContextPtr context = xmlXPathNewContext(doc);
+    if (!context) {
+        fprintf(stderr, "Failed to create XPath context.\n");
+        xmlFreeDoc(doc);
+        return NULL;
+    }
+
+    // XPath expression to find div elements with class 'myClass'
+    cstr *xpath = cstrnew();
+    xpath = cstrCatPrintf(xpath, "//span[contains(@class, '%s')]", classname);
+
+    xmlXPathObjectPtr result = xmlXPathEvalExpression(xpath, context);
+    if (!result) {
+        fprintf(stderr, "Failed to evaluate XPath expression.\n");
+        xmlXPathFreeContext(context);
+        xmlFreeDoc(doc);
+        return NULL;
+    }
+
+    xmlNodeSetPtr nodeset = result->nodesetval;
+    if (!nodeset) {
+        fprintf(stderr, "No result from XPath expression.\n");
+    } else {
+        l = listNew();
+        listSetFreedata(l, cstrRelease);
+
+        printf("Found %d element(s):\n", nodeset->nodeNr);
+        for (int i = 0; i < nodeset->nodeNr; i++) {
+            xmlChar *content = xmlNodeGetContent(nodeset->nodeTab[i]);
+            int diff = 0;
+            while (!isalnum(*content)) {
+                content++;
+                diff++;
+            }
+            unsigned int len = strlen((char *)content);
+            listAddHead(l, cstrDupRaw((char *)content, len, len + 10));
+            content -= diff;
+            xmlFree(content);
+        }
+    }
+
+    xmlXPathFreeObject(result);
+    xmlXPathFreeContext(context);
+    xmlFreeDoc(doc);
+    return l;
 }
 
-void htmlGrepFromUntil(char *buf, char *from, int fromlen, char *until,
-        int untilLen, char *outbuf)
+static int
+sortstring(void *str1, void *str2)
 {
-    grepClosure gc;
-    
-    gc.len = untilLen;
-    gc.out = &outbuf;
-    gc.until = until;
+    cstr *pp1 = str1;
+    cstr *pp2 = str2;
+    unsigned int len1 = cstrlen(pp1);
+    unsigned int len2 = cstrlen(pp2);
+    unsigned int minlen = len1 > len2 ? len2 : len1;
 
-    htmlGrepAndExec(buf, from, fromlen, &gc, htmlGrepUntil);
+    return memcmp(pp1, pp2, minlen);
 }
 
-void htmlGrepword(char *buf, char *word, int len) {
-    htmlGrepAndExec(buf, word, len, NULL, NULL);
+list *
+htmlGetMatches(cstr *html, char *classname)
+{
+    list *l = parse_html(html, classname);
+    listQSort(l, sortstring);
+    return l;
 }
 
-static void htmlwalkCollect(char **buf, char **outbuf) {
-    while (**buf != '<' && **buf != '\0') {
-        if (outbuf) *(*outbuf)++ = **buf;
-        (*buf)++;
+cstr *
+htmlConcatList(list *l)
+{
+    if (l->len == 0) {
+        return NULL;
     }
-}
+    cstr *new = cstrnew();
+    lNode *ln = l->root;
+    size_t count = l->len;
 
-void htmlStanitizeText(char *buf, char *outbuf, size_t size) {
-    char tmp[2000];
-    char *ptr;
-    size_t i;
+    do {
+        cstr *data = (cstr *)ln->data;
+        data = cstrPutChar(data, '\n');
+        new = cstrCatLen(new, data, cstrlen(data));
+        ln = ln->next;
+        count--;
+    } while (count);
 
-    ptr = tmp;
-    i = 0;
-
-    while (!iscollectable(*buf)) buf++;
-    while (*buf != '\0') {
-        if (*buf == '\n') {
-            *ptr++ = '\n';
-            i++;
-            if (i == size) break;
-            while (!iscollectable(*buf)) {
-                buf++;
-                if (*buf == '\0') break;
-            }
-        }
-        *ptr++ = *buf;
-        i++;
-        if (i == size) break;
-        buf++;
-    }
-    *(ptr - 1) = '\0';
-    if (outbuf) strcpy(outbuf, tmp);
-}
-
-void htmlExtractText(char *buf, char *outbuf, size_t size) {
-    enum htmlstate state;
-    char out[2000];
-    char *ptr, *outptr;
-    
-    ptr = buf;
-    outptr = out;
-    state = WALK;
-
-    while (*ptr != '\0') {
-        if (state == COLLECT) htmlwalkCollect(&ptr, &outptr);
-        state = htmlwalk(ptr, state);
-        ptr++;
-    }
-
-    *outptr = '\0';
-    htmlStanitizeText(out, outbuf, size);
-}
-
-void htmlQuikSanitize(char *in, char *out) {
-    char *ptr;
-    ptr = in;
-    
-    while (*ptr != '\0') {
-        if (isalnum(*ptr) || *ptr == ' ' || *ptr == '\n') {
-            *out = *ptr;
-        }
-        ptr++;
-    }
+    return new;
 }

@@ -1,9 +1,9 @@
 SERVER := dict-server
 CLIENT := define
 CC     := cc
-CFLAGS := -Wall -Werror -Wextra -Wpedantic -O2
+CFLAGS := -Wall -Wextra -Wpedantic -O2
 OUT    := build
-LIBS   := -lcurl -lsqlite3
+LIBS   := -lcurl -lsqlite3 -lxml2
 
 PREFIX?=/usr/local
 
@@ -20,7 +20,8 @@ SERVER_OBJS = $(OUT)/server.o \
 			  $(OUT)/htmlgrep.o \
 			  $(OUT)/dbclient.o \
 			  $(OUT)/eloop.o \
-			  $(OUT)/cstr.o
+			  $(OUT)/cstr.o \
+			  $(OUT)/list.o
 
 $(SERVER): $(SERVER_OBJS)
 	$(CC) -o $(SERVER) $(SERVER_OBJS) $(LIBS)
@@ -73,7 +74,9 @@ $(OUT)/panic.o: \
 
 $(OUT)/htmlgrep.o: \
 	./htmlgrep.c \
-	./htmlgrep.h
+	./htmlgrep.h \
+	./list.h \
+	./cstr.h
 
 $(OUT)/dbclient.o: \
 	./dbclient.c \
@@ -86,3 +89,7 @@ $(OUT)/eloop.o: \
 $(OUT)/cstr.o: \
 	./cstr.c \
 	./cstr.h
+
+$(OUT)/list.o: \
+	./list.c \
+	./list.h

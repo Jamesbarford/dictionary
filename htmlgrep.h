@@ -1,12 +1,10 @@
 #ifndef __HTML_GREP_H__
 #define __HTML_GREP_H__
 
-#include <stddef.h>
+#include "cstr.h"
+#include "list.h"
 
-void htmlStanitizeText(char *buf, char *outbuf, size_t size);
-void htmlQuikSanitize(char *in, char *out);
-void htmlGrepword(char *buf, char *word, int len);
-void htmlGrepFromUntil(char *buf, char *from, int fromlen, char *until,
-        int untilLen, char *outbuf);
+list *htmlGetMatches(cstr *html, char *classname);
+cstr *htmlConcatList(list *l);
 
 #endif

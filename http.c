@@ -2,10 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "cstr.h"
 #include "http.h"
 #include "panic.h"
 
-httpResponse *_httpCreateResponse() {
+httpResponse *
+_httpCreateResponse()
+{
     httpResponse *res;
 
     if ((res = malloc(sizeof(httpResponse))) == NULL)
@@ -19,14 +22,18 @@ httpResponse *_httpCreateResponse() {
     return res;
 }
 
-void httpResponseRelease(httpResponse *response) {
+void
+httpResponseRelease(httpResponse *response)
+{
     if (response) {
-        free(response->body);
+        cstrRelease(response->body);
         free(response);
     }
 }
 
-static int _httpGetContentType(char *type) {
+static int
+_httpGetContentType(char *type)
+{
     if (strncmp(type, "application/json", 16) == 0)
         return RES_TYPE_JSON;
     if (strncmp(type, "text/html", 9) == 0)
@@ -37,7 +44,9 @@ static int _httpGetContentType(char *type) {
     return RES_TYPE_INVALID;
 }
 
-void httpPrintResponse(httpResponse *response) {
+void
+httpPrintResponse(httpResponse *response)
+{
     if (response == NULL) {
         printf("(null)\n");
         return;
@@ -64,58 +73,57 @@ void httpPrintResponse(httpResponse *response) {
            "body length: %d\n"
            "content type: %s\n"
            "body: %s\n",
-        response->status_code, response->bodylen, content_type, response->body);
+            response->status_code, response->bodylen, content_type,
+            response->body);
 }
 
-static size_t curlRead(void *contents, size_t size, size_t nmemb, void *userp) {
-    size_t realsize = size * nmemb;
-    httpResponse *resp = (httpResponse *)userp;
+static size_t
+httpRequestWriteCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+    cstr **response_str_ptr = (cstr **)userdata;
+    size_t new_len = size * nmemb;
+    *response_str_ptr = cstrCatLen(*response_str_ptr, ptr, new_len);
 
-    char *ptr = realloc(resp->body, resp->bodylen + realsize + 1);
-    if (ptr == NULL) {
-        warning("CURL error: not enough memory\n");
-        return 0;
-    }
-
-    resp->body = ptr;
-    memcpy(&(resp->body[resp->bodylen]), contents, realsize);
-    resp->bodylen += realsize;
-    resp->body[resp->bodylen] = 0;
-
-    return realsize;
+    return new_len;
 }
 
-httpResponse *curlHttpGet(char *url) {
+httpResponse *
+curlHttpGet(char *url)
+{
     CURL *curl;
     CURLcode res;
-    httpResponse *response;
+    httpResponse *httpres;
+    cstr *response = cstrnew();
     char *contenttype = NULL;
 
-    if ((response = _httpCreateResponse()) == NULL)
+    if ((httpres = _httpCreateResponse()) == NULL)
         return NULL;
 
-    response->body = malloc(1);
-    response->bodylen = 0;
+    httpres->body = malloc(1);
+    httpres->bodylen = 0;
 
     curl = curl_easy_init();
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, url);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlRead);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
+                &httpRequestWriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
         res = curl_easy_perform(curl);
         if (res != CURLE_OK) {
             warning("Failed to make request: %s\n", curl_easy_strerror(res));
-            return response;
+            return httpres;
         } else {
             res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &contenttype);
-            response->status_code = 200;
-            response->content_type = _httpGetContentType(contenttype);
+            httpres->status_code = 200;
+            httpres->content_type = _httpGetContentType(contenttype);
+            httpres->body = response;
+            httpres->bodylen = cstrlen(response);
             curl_easy_cleanup(curl);
-            return response;
+            return httpres;
         }
     }
 
-    return response;
+    return httpres;
 }

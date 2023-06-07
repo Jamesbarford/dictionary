@@ -1,33 +1,48 @@
-#ifndef __CSTR_H__
-#define __CSTR_H__
+#ifndef __CSTR_H
+#define __CSTR_H
+
+typedef unsigned char cstr;
 
 #define CSTR_ERR -1
-#define CSTR_OK   1
-#define CSTR_PAD sizeof(int) + 1
-
-typedef char cstr;
+#define CSTR_OK 1
 
 void cstrRelease(void *str);
-void cstrArrayRelease(cstr **arr, int count);
+
 void cstrSetLen(cstr *str, unsigned int len);
 unsigned int cstrlen(cstr *str);
+unsigned int cstrGetCapacity(cstr *str);
 
-/**
- * The first 5 bytes are reserved. 4 for an integer, with the 5th being
- * a null terminator.
- * Resultant buffer looks like this:
- *   LEN     LEN      LEN     LEN    END   STRING    END
- * ['0xFF', '0xFF', '0xFF', '0xFF', '\0', 'a', 'b', '\0'];
- *
- * With the pointer moved forward twice to the start of the string. OR all
- * of the LEN properties together to get the length of the string;
- */
-cstr *cstrEmpty(unsigned int len);
-cstr *cstrCreate(char *tmp, unsigned int len);
-cstr *cstrdup(cstr *original);
+cstr *cstrExtendBufferIfNeeded(cstr *str, unsigned int additional);
+cstr *cstrAlloc(unsigned int capacity);
+cstr *cstrnew(void);
+
+void cstrToLowerCase(cstr *c);
+void cstrToUpperCase(cstr *c);
+
+/* Append 1 character to the end of the string and increment the length, try
+ * avoid using this with really big strings */
+cstr *cstrPutChar(cstr *str, char ch);
+unsigned char cstrUnPutChar(cstr *str);
+cstr *cstrMutableSlice(cstr *s, unsigned int from, unsigned int to,
+        unsigned int size);
+cstr *cstrWrite(cstr *s, char *s2, unsigned int len);
+
+int cstrnCmp(cstr *s1, cstr *s2, unsigned int size);
+int cstrCmp(cstr *s1, cstr *s2);
+
+/* Duplicate the string */
+cstr *cstrDup(cstr *s);
+cstr *cstrDupRaw(char *s, unsigned int len, unsigned int capacity);
+
+cstr *cstrCatLen(cstr *str, const void *buf, unsigned int len);
+cstr *cstrCat(cstr *str, char *s);
+cstr *cstrCatPrintf(cstr *s, const char *fmt, ...);
+
+cstr *cstrEscapeString(char *buf);
+int cstrContainsPattern(void *buf, unsigned int buflen, char *pattern,
+        unsigned int patternlen);
+
+void cstrArrayRelease(cstr **arr, int count);
 cstr **cstrSplit(char *to_split, char delimiter, int *count);
-cstr *cstrCopyUntil(char *original, char terminator);
-cstr **cstrCastArray(char *original);
-int cstrToString(cstr *str, char *outbuf, int outbuflen);
 
 #endif
