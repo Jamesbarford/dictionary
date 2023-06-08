@@ -1,12 +1,14 @@
-#include <errno.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/event.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+
+#include <netinet/in.h>
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -19,7 +21,9 @@ typedef struct evtState {
 
 #define __kevent(kfd, evt) (kevent((kfd), (evt), 1, NULL, 0, NULL))
 
-static int eloopStateCreate(eloop *el) {
+static int
+eloopStateCreate(eloop *el)
+{
     evtState *es;
 
     if ((es = malloc(sizeof(evtState))) == NULL)
@@ -43,7 +47,9 @@ error:
     return EVT_ERR;
 }
 
-static void eloopStateRelease(eloop *el) {
+static void
+eloopStateRelease(eloop *el)
+{
     if (el) {
         evtState *es = eloopGetState(el);
         if (es) {
@@ -54,7 +60,9 @@ static void eloopStateRelease(eloop *el) {
     }
 }
 
-static int eloopStateAdd(eloop *el, int fd, int mask) {
+static int
+eloopStateAdd(eloop *el, int fd, int mask)
+{
     evtState *es = eloopGetState(el);
     struct kevent event;
 
@@ -72,7 +80,9 @@ static int eloopStateAdd(eloop *el, int fd, int mask) {
     return EVT_OK;
 }
 
-static void eloopStateDelete(eloop *el, int fd, int mask) {
+static void
+eloopStateDelete(eloop *el, int fd, int mask)
+{
     evtState *es = eloopGetState(el);
     struct kevent event;
 
@@ -86,7 +96,9 @@ static void eloopStateDelete(eloop *el, int fd, int mask) {
     }
 }
 
-static int eloopPoll(eloop *el) {
+static int
+eloopPoll(eloop *el)
+{
     evtState *es = eloopGetState(el);
     int fdcount;
 
@@ -98,8 +110,10 @@ static int eloopPoll(eloop *el) {
             struct kevent *event = es->events + i;
             short filter = event->filter;
 
-            if (filter == EVFILT_READ)  newmask |= EVT_READ;
-            if (filter == EVFILT_WRITE) newmask |= EVT_WRITE;
+            if (filter == EVFILT_READ)
+                newmask |= EVT_READ;
+            if (filter == EVFILT_WRITE)
+                newmask |= EVT_WRITE;
             el->active[i].fd = event->ident;
             el->active[i].mask = newmask;
         }

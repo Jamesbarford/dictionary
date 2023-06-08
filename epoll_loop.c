@@ -1,13 +1,15 @@
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+
+#include <netinet/in.h>
+
 #include <errno.h>
 #include <fcntl.h>
-#include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 #include "eloop.h"
@@ -17,7 +19,9 @@ typedef struct evtState {
     struct epoll_event *events;
 } evtState;
 
-static int eloopStateCreate(eloop *el) {
+static int
+eloopStateCreate(eloop *el)
+{
     evtState *es;
 
     if ((es = malloc(sizeof(evtState))) == NULL)
@@ -41,7 +45,9 @@ error:
     return EVT_ERR;
 }
 
-static void eloopStateRelease(eloop *el) {
+static void
+eloopStateRelease(eloop *el)
+{
     if (el) {
         evtState *es = eloopGetState(el);
         if (es) {
@@ -52,14 +58,18 @@ static void eloopStateRelease(eloop *el) {
     }
 }
 
-static inline void _eloopStateSetMask(struct epoll_event *event, int mask) {
+static inline void
+_eloopStateSetMask(struct epoll_event *event, int mask)
+{
     if (mask & EVT_READ)
         event->events |= EPOLLIN;
     if (mask & EVT_WRITE)
         event->events |= EPOLLOUT;
 }
 
-static int eloopStateAdd(eloop *el, int fd, int mask) {
+static int
+eloopStateAdd(eloop *el, int fd, int mask)
+{
     evtState *es = eloopGetState(el);
     struct epoll_event event;
     int op;
@@ -76,7 +86,9 @@ static int eloopStateAdd(eloop *el, int fd, int mask) {
     return EVT_OK;
 }
 
-static void eloopStateDelete(eloop *el, int fd, int mask) {
+static void
+eloopStateDelete(eloop *el, int fd, int mask)
+{
     evtState *es = eloopGetState(el);
     struct epoll_event event;
     int newmask;
@@ -94,7 +106,9 @@ static void eloopStateDelete(eloop *el, int fd, int mask) {
         epoll_ctl(es->efd, EPOLL_CTL_DEL, fd, &event);
 }
 
-static int eloopPoll(eloop *el) {
+static int
+eloopPoll(eloop *el)
+{
     evtState *es = eloopGetState(el);
     int fdcount;
 

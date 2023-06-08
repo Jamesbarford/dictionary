@@ -11,13 +11,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "cstr.h"
+#include "aostr.h"
 #include "dbclient.h"
 #include "eloop.h"
 #include "hmap.h"
 #include "htmlgrep.h"
 #include "http.h"
 #include "inet.h"
+#include "list.h"
 #include "panic.h"
 
 #define SERVER_NAME "dictionary_daemon"
@@ -77,50 +78,15 @@ serverDaemonise(char *dir)
     return SERVER_OK;
 }
 
-cstr *
-sanitizeText(char *buf)
-{
-    char *ptr, *outptr, tmp[65535];
-    int linecount, collect, len;
-    cstr *out = NULL;
-
-    collect = 0;
-    linecount = 0;
-    outptr = tmp;
-    ptr = buf;
-
-    while (*ptr != '\0') {
-        if (collect == 1)
-            *outptr++ = *ptr;
-        if (*ptr == '\n' && collect == 1) {
-            linecount++;
-            collect = 0;
-        }
-        if (*ptr == ':' && collect == 0) {
-            collect = 1;
-            ptr++;
-            len = snprintf(outptr, 4, "%d) ", linecount + 1);
-            outptr += len;
-        }
-        ptr++;
-    }
-    *outptr = '\0';
-    len = strlen(tmp);
-    out = cstrAlloc(len);
-    out = cstrCatLen(out, tmp, len);
-
-    return out;
-}
-
 int
-serverPesistToDb(char *word, cstr *definition)
+serverPesistToDb(char *word, aoStr *definition)
 {
     char sqlstmt[65535];
     int len;
 
     len = snprintf(sqlstmt, 65535,
             "INSERT INTO %s (word, definitions) VALUES ('%s', '%s');", DB_TABLE,
-            word, definition);
+            word, definition->data);
     sqlstmt[len] = '\0';
 
     return dbExec(server.db, sqlstmt);
@@ -168,31 +134,28 @@ serverReadClientMessage(char *msg, char *word, int *len)
     return SERVER_OK;
 }
 
-cstr *
+aoStr *
 serverLookupClientRequest(char *reqword, int reqwordlen)
 {
-    cstr *definition;
+    aoStr *definition;
     httpResponse *resp;
 
     if ((definition = hmapGet(server.cache, reqword)) != NULL) {
         return definition;
-    } else {
-        // go to the internet and find a definition
-        if ((resp = serverConsultMerriam(reqword)) == NULL)
-            return SERVER_ERR;
+    }
+    // go to the internet and find a definition
+    if ((resp = serverConsultMerriam(reqword)) == NULL)
+        return SERVER_ERR;
 
-        if (resp->status_code == 200) {
-            list *l = htmlGetMatches(resp->body, "dtText");
-            cstr *all_matches = htmlConcatList(l);
+    if (resp->status_code == 200) {
+        list *l = htmlGetMatches(resp->body, "dtText");
+        aoStr *all_matches = htmlConcatList(l);
 
-            hmapAdd(server.cache,
-                    cstrDupRaw(reqword, reqwordlen, reqwordlen + 10),
-                    all_matches);
-            serverPesistToDb(reqword, all_matches);
-            return all_matches;
-        }
+        hmapAdd(server.cache, reqword, all_matches);
+        serverPesistToDb(reqword, all_matches);
+        listRelease(l);
         httpResponseRelease(resp);
-        return NULL;
+        return all_matches;
     }
 
     return NULL;
@@ -203,12 +166,9 @@ serverSendClientReply(eloop *el, int fd, void *data, int mask)
 {
     (void)el;
     (void)data;
-    cstr *response;
+    aoStr *response = NULL;
     char msg[MAX_MSG] = { '\0' }, word[MAX_MSG - 100] = { '\0' };
-    int rbytes, wordlen, definitionlen, sbytes;
-
-    response = NULL;
-    definitionlen = 0;
+    int rbytes, wordlen, sbytes;
 
     if ((rbytes = read(fd, msg, MAX_MSG)) < 0)
         goto error;
@@ -225,13 +185,12 @@ serverSendClientReply(eloop *el, int fd, void *data, int mask)
         goto error;
     }
 
-    definitionlen = cstrlen(response);
-
-    if (definitionlen != 0) {
-        if ((sbytes = write(fd, response, definitionlen)) != definitionlen) {
+    if (response && response->len != 0) {
+        if ((sbytes = write(fd, response->data, response->len)) !=
+                response->len) {
             warning("[%d] SERVER ERROR: Failed to write complete message"
                     " of %d bytes in length, sent: %d, %s\n",
-                    definitionlen, sbytes, strerror(errno), server.pid);
+                    response->len, sbytes, strerror(errno), server.pid);
         } else {
             printf("[%d]: server responded to '%s' OK\n", server.pid, word);
         }
@@ -265,7 +224,7 @@ void
 serverTransferToCache(void *_cache, int columncount, char **row)
 {
     hmap *cache = _cache;
-    cstr *key, *value;
+    aoStr *value;
     unsigned int keylen, valuelen;
 
     if (columncount != 2)
@@ -274,13 +233,12 @@ serverTransferToCache(void *_cache, int columncount, char **row)
     keylen = strlen(row[0]);
     valuelen = strlen(row[1]);
 
-    key = cstrDupRaw(row[0], keylen, keylen + 10);
-    value = cstrDupRaw(row[1], valuelen, valuelen + 10);
-    hmapAdd(cache, key, value);
+    value = aoStrDupRaw(row[1], valuelen, valuelen + 10);
+    hmapAdd(cache, strndup(row[0], keylen), value);
 }
 
 void
-serverInitDictionary()
+serverInitDictionary(void)
 {
     char sqltablestmt[2000], sqlcountstmt[200], sqlselectstmt[200];
     int len;
@@ -311,7 +269,7 @@ serverInitDictionary()
 }
 
 void
-serverSetFileDescriptorLimit()
+serverSetFileDescriptorLimit(void)
 {
     struct rlimit fdlim, newfdlim;
     rlim_t currentlimit, targetlimit, decrement;

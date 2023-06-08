@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cstr.h"
+#include "aostr.h"
 #include "http.h"
 #include "panic.h"
 
@@ -26,7 +26,7 @@ void
 httpResponseRelease(httpResponse *response)
 {
     if (response) {
-        cstrRelease(response->body);
+        aoStrRelease(response->body);
         free(response);
     }
 }
@@ -74,17 +74,17 @@ httpPrintResponse(httpResponse *response)
            "content type: %s\n"
            "body: %s\n",
             response->status_code, response->bodylen, content_type,
-            response->body);
+            response->body->data);
 }
 
 static size_t
-httpRequestWriteCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+httpRequestWriteCallback(char *ptr, size_t size, size_t nmemb, void **userdata)
 {
-    cstr **response_str_ptr = (cstr **)userdata;
-    size_t new_len = size * nmemb;
-    *response_str_ptr = cstrCatLen(*response_str_ptr, ptr, new_len);
+    aoStr **str = (aoStr **)userdata;
+    size_t rbytes = size * nmemb;
+    aoStrCatLen(*str, ptr, rbytes);
 
-    return new_len;
+    return rbytes;
 }
 
 httpResponse *
@@ -93,21 +93,18 @@ curlHttpGet(char *url)
     CURL *curl;
     CURLcode res;
     httpResponse *httpres;
-    cstr *response = cstrnew();
     char *contenttype = NULL;
+    aoStr *respbody = aoStrAlloc(512);
 
     if ((httpres = _httpCreateResponse()) == NULL)
         return NULL;
-
-    httpres->body = malloc(1);
-    httpres->bodylen = 0;
 
     curl = curl_easy_init();
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
                 &httpRequestWriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &respbody);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
         res = curl_easy_perform(curl);
@@ -118,9 +115,10 @@ curlHttpGet(char *url)
             res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &contenttype);
             httpres->status_code = 200;
             httpres->content_type = _httpGetContentType(contenttype);
-            httpres->body = response;
-            httpres->bodylen = cstrlen(response);
+            httpres->body = respbody;
+            httpres->bodylen = respbody->len;
             curl_easy_cleanup(curl);
+            printf("REQ DONE\n");
             return httpres;
         }
     }

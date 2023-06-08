@@ -40,8 +40,7 @@ typedef struct list {
 list *listNew(void);
 list *listTSNew(void);
 
-void *listFind(list *l, void *search_data,
-        listFindCallback *compare);
+void *listFind(list *l, void *search_data, listFindCallback *compare);
 void listAddHead(list *l, void *val);
 void listAddTail(list *l, void *val);
 void *listRemoveHead(list *l);
@@ -50,8 +49,7 @@ void listQSort(list *l, listCmp *compare);
 void listPrint(list *l, listPrintCallback *print);
 
 /* TS being thread safe */
-void *listTSFind(list *l, void *search_data,
-        listFindCallback *compare);
+void *listTSFind(list *l, void *search_data, listFindCallback *compare);
 void listTSAddHead(list *l, void *val);
 void listTSAddTail(list *l, void *val);
 void *listTSRemoveHead(list *l);

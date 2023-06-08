@@ -1,7 +1,8 @@
 #ifndef __HTTP__
 #define __HTTP__
 
-#include "cstr.h"
+#include "aostr.h"
+
 #define RES_TYPE_INVALID (0 << 1)
 #define RES_TYPE_HTML (1 << 1)
 #define RES_TYPE_TEXT (2 << 1)
@@ -11,7 +12,7 @@
 #define HTTP_OK 1
 
 typedef struct httpResponse {
-    cstr *body;
+    aoStr *body;
     unsigned int bodylen;
     unsigned int status_code;
     int content_type;

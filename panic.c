@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void panic(char *fmt, ...) {
+void
+panic(char *fmt, ...)
+{
     va_list va;
     char msg[1024];
 
@@ -14,7 +16,9 @@ void panic(char *fmt, ...) {
     exit(EXIT_FAILURE);
 }
 
-void warning(char *fmt, ...) {
+void
+warning(char *fmt, ...)
+{
     va_list va;
     char msg[1024];
 

@@ -4,14 +4,18 @@
 
 #include "hmap.h"
 
-#define _hmapShouldRebuild(h)                                                  \
+#define _hmapShouldRebuild(h) \
     ((h)->size >= (h)->rebuildThreashold && (h)->fixedsize == 0)
 
-static inline hmapEntry **hmapEntryAlloc(unsigned int capacity) {
+static inline hmapEntry **
+hmapEntryAlloc(unsigned int capacity)
+{
     return calloc(capacity, sizeof(hmapEntry *));
 }
 
-static inline unsigned int hashString(void *key) {
+static inline unsigned int
+hashString(void *key)
+{
     char *s = key;
     unsigned int h = (unsigned int)*s;
 
@@ -23,8 +27,8 @@ static inline unsigned int hashString(void *key) {
     return h;
 }
 
-static inline int hmapStrCmp(void *k1, unsigned int h1, void *k2,
-        unsigned int h2)
+static inline int
+hmapStrCmp(void *k1, unsigned int h1, void *k2, unsigned int h2)
 {
     char *str1 = k1;
     char *str2 = k2;
@@ -32,7 +36,9 @@ static inline int hmapStrCmp(void *k1, unsigned int h1, void *k2,
     return h1 == h2 && strcmp(str1, str2) == 0;
 }
 
-static unsigned int roundup32bit(unsigned int num) {
+static unsigned int
+roundup32bit(unsigned int num)
+{
     num--;
     num |= num >> 1;
     num |= num >> 2;
@@ -43,7 +49,9 @@ static unsigned int roundup32bit(unsigned int num) {
     return num;
 }
 
-static void _hmapEntryRelease(hmap *hm, hmapEntry *he, int freeHe) {
+static void
+_hmapEntryRelease(hmap *hm, hmapEntry *he, int freeHe)
+{
     if (he) {
         if (freeHe) {
             hmapKeyRelease(hm, he->key);
@@ -60,7 +68,9 @@ hmapType defaultType = {
     .freevalue = free,
 };
 
-void hmapRelease(hmap *hm) {
+void
+hmapRelease(hmap *hm)
+{
     hmapEntry *he, *next, *cur;
 
     for (unsigned int i = 0; i < hm->size; ++i) {
@@ -85,8 +95,8 @@ void hmapRelease(hmap *hm) {
     free(hm);
 }
 
-static hmap *_hmapCreate(hmapType *type, int fixedsize,
-        unsigned int startCapacity)
+static hmap *
+_hmapCreate(hmapType *type, int fixedsize, unsigned int startCapacity)
 {
     hmap *hm;
 
@@ -108,19 +118,27 @@ static hmap *_hmapCreate(hmapType *type, int fixedsize,
     return hm;
 }
 
-hmap *hmapCreateWithType(hmapType *type) {
+hmap *
+hmapCreateWithType(hmapType *type)
+{
     return _hmapCreate(type, 0, HM_MIN_CAPACITY);
 }
 
-hmap *hmapCreate() {
+hmap *
+hmapCreate()
+{
     return hmapCreateWithType(&defaultType);
 }
 
-hmap *hmapCreateFixed(hmapType *type, unsigned int capacity) {
+hmap *
+hmapCreateFixed(hmapType *type, unsigned int capacity)
+{
     return _hmapCreate(type, 1, roundup32bit(capacity));
 }
 
-static int _hmapExpand(hmap *hm) {
+static int
+_hmapExpand(hmap *hm)
+{
     unsigned int i;
     int idx;
     hmapEntry **newEntries, **oldEntries;
@@ -162,7 +180,9 @@ static int _hmapExpand(hmap *hm) {
     return HM_OK;
 }
 
-static int _hmapGetIndex(hmap *hm, void *key, unsigned int hash) {
+static int
+_hmapGetIndex(hmap *hm, void *key, unsigned int hash)
+{
     hmapEntry *he;
     int idx;
 
@@ -181,7 +201,9 @@ static int _hmapGetIndex(hmap *hm, void *key, unsigned int hash) {
     return idx;
 }
 
-hmapEntry *hmapGetEntry(hmap *hm, void *key) {
+hmapEntry *
+hmapGetEntry(hmap *hm, void *key)
+{
     hmapEntry *he;
     unsigned int hash;
 
@@ -197,7 +219,9 @@ hmapEntry *hmapGetEntry(hmap *hm, void *key) {
     return NULL;
 }
 
-void *hmapGet(hmap *hm, void *key) {
+void *
+hmapGet(hmap *hm, void *key)
+{
     hmapEntry *he;
 
     if ((he = hmapGetEntry(hm, key)) == NULL)
@@ -206,14 +230,18 @@ void *hmapGet(hmap *hm, void *key) {
     return he->value;
 }
 
-int hmapContains(hmap *hm, void *key) {
+int
+hmapContains(hmap *hm, void *key)
+{
     unsigned int hash = hmapHash(hm, key);
     if (_hmapGetIndex(hm, key, hash) == HM_FOUND)
         return HM_FOUND;
     return HM_NOT_FOUND;
 }
 
-int hmapAdd(hmap *hm, void *key, void *value) {
+int
+hmapAdd(hmap *hm, void *key, void *value)
+{
     int idx;
     unsigned int hash;
     hmapEntry *newHe;
@@ -236,7 +264,9 @@ int hmapAdd(hmap *hm, void *key, void *value) {
     return HM_OK;
 }
 
-hmapEntry *hmapDelete(hmap *hm, void *key) {
+hmapEntry *
+hmapDelete(hmap *hm, void *key)
+{
     unsigned int hash, idx;
     hmapEntry *he, *heprev;
 
@@ -247,8 +277,10 @@ hmapEntry *hmapDelete(hmap *hm, void *key) {
 
     while (he) {
         if (hmapKeycmp(hm, key, hash, he->key, he->hash)) {
-            if (heprev) heprev->next = he->next;
-            else hm->entries[idx] = he->next;
+            if (heprev)
+                heprev->next = he->next;
+            else
+                hm->entries[idx] = he->next;
             hm->size--;
 
             return he;
@@ -261,7 +293,9 @@ hmapEntry *hmapDelete(hmap *hm, void *key) {
     return NULL;
 }
 
-hmapIterator *hmapIteratorCreate(hmap *hm) {
+hmapIterator *
+hmapIteratorCreate(hmap *hm)
+{
     hmapIterator *iter;
 
     if ((iter = malloc(sizeof(hmapIterator))) == NULL)
@@ -274,11 +308,16 @@ hmapIterator *hmapIteratorCreate(hmap *hm) {
     return iter;
 }
 
-void hmapIteratorRelease(hmapIterator *iter) {
-    if (iter) free(iter);
+void
+hmapIteratorRelease(hmapIterator *iter)
+{
+    if (iter)
+        free(iter);
 }
 
-int hmapIteratorGetNext(hmapIterator *iter) {
+int
+hmapIteratorGetNext(hmapIterator *iter)
+{
     unsigned int idx;
 
     while (iter->idx < iter->hm->capacity) {

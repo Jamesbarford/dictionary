@@ -3,8 +3,8 @@
 
 #include "eloop.h"
 
-#if defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6) ||                    \
-    defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#if defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6) || \
+        defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
 #include "kevent_loop.c"
 #elif defined(__linux__)
 #include "epoll_loop.c"
@@ -12,26 +12,30 @@
 #error "os does not support epoll or kqueue"
 #endif
 
-#define evtRead(ev, el, fd, mask) \
-    ((ev)->read((el), (fd), (ev)->data, (mask)))
-#define evtWrite(ev, el, fd, mask) \
-    ((ev)->write((el), (fd), (ev)->data, (mask)))
+#define evtRead(ev, el, fd, mask) ((ev)->read((el), (fd), (ev)->data, (mask)))
+#define evtWrite(ev, el, fd, mask) ((ev)->write((el), (fd), (ev)->data, (mask)))
 
-static inline void _eloopSetEvtAdd(evt *evs, int eventcount) {
+static inline void
+_eloopSetEvtAdd(evt *evs, int eventcount)
+{
     for (int i = 0; i < eventcount; ++i)
         evs[i].mask = EVT_ADD;
 }
 
-void eloopRelease(eloop *el) {
-	if (el) {
-		free(el->idle);
-		free(el->active);
-		eloopStateRelease(el);
-		free(el);
-	}
+void
+eloopRelease(eloop *el)
+{
+    if (el) {
+        free(el->idle);
+        free(el->active);
+        eloopStateRelease(el);
+        free(el);
+    }
 }
 
-eloop *eloopCreate(int eventcount) {
+eloop *
+eloopCreate(int eventcount)
+{
     int eventssize;
     eloop *el;
     evt *idle, *active;
@@ -72,7 +76,9 @@ error:
     return NULL;
 }
 
-int eloopAddEvent(eloop *el, int fd, int mask, evtCallback *cb, void *data) {
+int
+eloopAddEvent(eloop *el, int fd, int mask, evtCallback *cb, void *data)
+{
     evt *ev;
 
     if (fd >= el->count)
@@ -84,19 +90,26 @@ int eloopAddEvent(eloop *el, int fd, int mask, evtCallback *cb, void *data) {
 
     ev->mask |= mask;
     ev->data = data;
-    if (mask & EVT_READ)  ev->read = cb;
-    if (mask & EVT_WRITE) ev->write = cb;
-    if (fd > el->max) el->max = fd;
+    if (mask & EVT_READ)
+        ev->read = cb;
+    if (mask & EVT_WRITE)
+        ev->write = cb;
+    if (fd > el->max)
+        el->max = fd;
 
     return EVT_OK;
 }
 
-void eloopDeleteEvent(eloop *el, int fd, int mask) {
+void
+eloopDeleteEvent(eloop *el, int fd, int mask)
+{
     evt *ev;
 
-    if (fd >= el->count) return;
+    if (fd >= el->count)
+        return;
     ev = &el->idle[fd];
-    if (ev->mask == EVT_ADD) return;
+    if (ev->mask == EVT_ADD)
+        return;
 
     eloopStateDelete(el, fd, mask);
     ev->mask = ev->mask & (~mask);
@@ -109,8 +122,11 @@ void eloopDeleteEvent(eloop *el, int fd, int mask) {
     }
 }
 
-int eloopProcessEvents(eloop *el) {
-    if (el->max == -1) return 0;
+int
+eloopProcessEvents(eloop *el)
+{
+    if (el->max == -1)
+        return 0;
     int processed, eventcount, fd, mask, firedevts;
     evt *ev;
 
@@ -142,6 +158,9 @@ int eloopProcessEvents(eloop *el) {
     return processed;
 }
 
-void eloopMain(eloop *el) {
-    while (1) (void)eloopProcessEvents(el);
+void
+eloopMain(eloop *el)
+{
+    while (1)
+        (void)eloopProcessEvents(el);
 }

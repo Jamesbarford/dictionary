@@ -20,7 +20,7 @@ SERVER_OBJS = $(OUT)/server.o \
 			  $(OUT)/htmlgrep.o \
 			  $(OUT)/dbclient.o \
 			  $(OUT)/eloop.o \
-			  $(OUT)/cstr.o \
+			  $(OUT)/aostr.o \
 			  $(OUT)/list.o
 
 $(SERVER): $(SERVER_OBJS)
@@ -76,7 +76,7 @@ $(OUT)/htmlgrep.o: \
 	./htmlgrep.c \
 	./htmlgrep.h \
 	./list.h \
-	./cstr.h
+	./aostr.h
 
 $(OUT)/dbclient.o: \
 	./dbclient.c \
@@ -86,9 +86,9 @@ $(OUT)/eloop.o: \
 	./eloop.c \
 	./eloop.h
 
-$(OUT)/cstr.o: \
-	./cstr.c \
-	./cstr.h
+$(OUT)/aostr.o: \
+	./aostr.c \
+	./aostr.h
 
 $(OUT)/list.o: \
 	./list.c \

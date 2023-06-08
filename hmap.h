@@ -43,10 +43,8 @@ typedef struct hmapIterator {
 #define hmapHash(h, k) ((h->type)->hashFn((k)))
 #define hmapKeycmp(hm, k1, h1, k2, h2) \
     ((hm)->type->keycmp((k1), (h1), (k2), (h2)))
-#define hmapKeyRelease(hm, k) \
-    ((hm)->type->freekey((k)))
-#define hmapValueRelease(hm, k) \
-    ((hm)->type->freevalue((k)))
+#define hmapKeyRelease(hm, k) ((hm)->type->freekey((k)))
+#define hmapValueRelease(hm, k) ((hm)->type->freevalue((k)))
 
 hmap *hmapCreate();
 hmap *hmapCreateWithType(hmapType *type);

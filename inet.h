@@ -2,7 +2,7 @@
 #define __INET_H__
 
 #define INET_ERR 0
-#define INET_OK  1
+#define INET_OK 1
 
 #define INET_NON_BLOCK 1
 

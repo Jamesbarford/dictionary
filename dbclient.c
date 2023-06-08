@@ -1,22 +1,30 @@
 #include <sqlite3.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "dbclient.h"
 
-static int noop(void *d, int argc, char **argv, char **colname) {
-    (void)d;(void)argc;(void)argv;(void)colname;
+static int
+noop(void *d, int argc, char **argv, char **colname)
+{
+    (void)d;
+    (void)argc;
+    (void)argv;
+    (void)colname;
     return 0;
 }
 
-void dbRelease(dbClient *client) {
+void
+dbRelease(dbClient *client)
+{
     sqlite3 *db = client->conn;
     sqlite3_close(db);
     free(client);
 }
 
-void dbForEachRow(dbClient *client, char *stmt, void *p,
-        void(*func)(void *, int count, char **data))
+void
+dbForEachRow(dbClient *client, char *stmt, void *p,
+        void (*func)(void *, int count, char **data))
 {
     sqlite3 *db = client->conn;
     int columncount, i;
@@ -35,7 +43,7 @@ void dbForEachRow(dbClient *client, char *stmt, void *p,
 
     if ((tuple = malloc(sizeof(char *) * columncount)) == NULL)
         goto cleanup;
-    
+
     // first row
     for (i = 0; i < columncount; ++i)
         tuple[i] = (char *)sqlite3_column_text(res, i);
@@ -48,13 +56,16 @@ void dbForEachRow(dbClient *client, char *stmt, void *p,
     }
 
 cleanup:
-    if (res) sqlite3_finalize(res);
-    if (tuple) free(tuple);
+    if (res)
+        sqlite3_finalize(res);
+    if (tuple)
+        free(tuple);
 }
 
-
 /* The stmt has to follow SELECT COUNT .... otherwise this will fail */
-long long dbGetRowCount(dbClient *client, char *stmt) {
+long long
+dbGetRowCount(dbClient *client, char *stmt)
+{
     sqlite3 *db = client->conn;
     char query[2000];
     unsigned const char *val;
@@ -66,8 +77,9 @@ long long dbGetRowCount(dbClient *client, char *stmt) {
     len = snprintf(query, 2000, "%s", stmt);
     query[len] = '\0';
     rc = sqlite3_prepare_v2(db, query, -1, &res, 0);
-    
-    if (rc != SQLITE_OK) return rowcount;
+
+    if (rc != SQLITE_OK)
+        return rowcount;
 
     if ((step = sqlite3_step(res)) == SQLITE_ROW) {
         val = sqlite3_column_text(res, 0);
@@ -78,7 +90,9 @@ long long dbGetRowCount(dbClient *client, char *stmt) {
     return rowcount;
 }
 
-int dbExec(dbClient *client, char *sql) {
+int
+dbExec(dbClient *client, char *sql)
+{
     sqlite3 *db = client->conn;
     int rc;
 
@@ -88,7 +102,9 @@ int dbExec(dbClient *client, char *sql) {
     return DB_OK;
 }
 
-dbClient *dbConnect(char *dbname) {
+dbClient *
+dbConnect(char *dbname)
+{
     sqlite3 *db;
     dbClient *c;
 
