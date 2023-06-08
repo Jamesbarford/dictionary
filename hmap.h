@@ -2,11 +2,11 @@
 #define __HMAP_H__
 
 #define HM_MIN_CAPACITY 1 << 16
-#define HM_LOAD 0.67
-#define HM_ERR 0
-#define HM_OK 1
-#define HM_FOUND -2
-#define HM_NOT_FOUND -3
+#define HM_LOAD         0.67
+#define HM_ERR          0
+#define HM_OK           1
+#define HM_FOUND        -2
+#define HM_NOT_FOUND    -3
 
 typedef int hmapKeyCompare(void *, unsigned int h1, void *, unsigned int h2);
 
@@ -43,7 +43,7 @@ typedef struct hmapIterator {
 #define hmapHash(h, k) ((h->type)->hashFn((k)))
 #define hmapKeycmp(hm, k1, h1, k2, h2) \
     ((hm)->type->keycmp((k1), (h1), (k2), (h2)))
-#define hmapKeyRelease(hm, k) ((hm)->type->freekey((k)))
+#define hmapKeyRelease(hm, k)   ((hm)->type->freekey((k)))
 #define hmapValueRelease(hm, k) ((hm)->type->freevalue((k)))
 
 hmap *hmapCreate();

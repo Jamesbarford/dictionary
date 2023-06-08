@@ -21,14 +21,14 @@
 #include "list.h"
 #include "panic.h"
 
-#define SERVER_NAME "dictionary_daemon"
-#define SERVER_ERR 0
-#define SERVER_OK 1
-#define DB_NAME "dict.db"
-#define DB_TABLE "dict"
-#define MAX_MSG 1024
-#define BACKLOG 500
-#define PORT 5050
+#define SERVER_NAME     "dictionary_daemon"
+#define SERVER_ERR      0
+#define SERVER_OK       1
+#define DB_NAME         "dict.db"
+#define DB_TABLE        "dict"
+#define MAX_MSG         1024
+#define BACKLOG         500
+#define PORT            5050
 #define MERRIAM_WEBSTER "https://www.merriam-webster.com/dictionary"
 
 typedef struct dictionaryServer {

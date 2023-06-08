@@ -12,7 +12,7 @@
 #error "os does not support epoll or kqueue"
 #endif
 
-#define evtRead(ev, el, fd, mask) ((ev)->read((el), (fd), (ev)->data, (mask)))
+#define evtRead(ev, el, fd, mask)  ((ev)->read((el), (fd), (ev)->data, (mask)))
 #define evtWrite(ev, el, fd, mask) ((ev)->write((el), (fd), (ev)->data, (mask)))
 
 static inline void

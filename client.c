@@ -6,14 +6,14 @@
 #include "inet.h"
 #include "panic.h"
 
-#define MAX_MSG 1024
-#define PORT 5050
+#define MAX_MSG     1024
+#define PORT        5050
 #define SERVER_NAME "dictionary_daemon"
 
 static char *progname;
 
 static void
-clientUsage()
+clientUsage(void)
 {
     panic("Usage: %s <string>\n"
           "Print dictionary definition of a word\n",

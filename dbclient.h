@@ -2,7 +2,7 @@
 #define __DB_CLIENT_H__
 
 #define DB_ERR 0
-#define DB_OK 1
+#define DB_OK  1
 
 typedef struct dbClient {
     void *conn;
